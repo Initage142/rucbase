@@ -28,6 +28,24 @@ bool LRUReplacer::victim(frame_id_t* frame_id) {
     //  利用lru_replacer中的LRUlist_,LRUHash_实现LRU策略
     //  选择合适的frame指定为淘汰页面,赋值给*frame_id
 
+    /*
+    1. 检查LRUlist_是否为空。如果为空，说明没有可替换的frame，返回false。
+
+    2. 如果不为空，就取出链表中的最后一个元素，也就是最久未使用的那个frame的id。
+
+    3. 将这个id赋值给*frame_id。
+
+    4. 然后从链表中删除这个元素，并且在哈希表中也删除对应的项。
+
+    5. 返回true。*/
+    if (LRUlist_.empty())
+    {
+        return false;
+    }
+    *frame_id = LRUlist_.back();
+    LRUlist_.pop_back();
+    LRUhash_.erase(*frame_id);
+
     return true;
 }
 
@@ -40,6 +58,22 @@ void LRUReplacer::pin(frame_id_t frame_id) {
     // Todo:
     // 固定指定id的frame
     // 在数据结构中移除该frame
+
+    /*
+    1. 在LRUHash_中查找frame_id是否存在。
+
+    2. 如果存在，获取对应的链表迭代器。
+
+    3. 从LRUlist_中erase该迭代器。
+
+    4. 从LRUHash_中erase该frame_id。*/
+    auto &&it  = LRUhash_.find(frame_id);
+    if(it  == LRUhash_.end()){
+        return;
+    }
+    LRUlist_.erase(it->second);
+    LRUhash_.erase(it);
+
 }
 
 /**
@@ -50,7 +84,28 @@ void LRUReplacer::unpin(frame_id_t frame_id) {
     // Todo:
     //  支持并发锁
     //  选择一个frame取消固定
-}
+
+    /*- 首先，获取锁，保证线程安全。
+
+    - 检查该frame_id是否已经在LRUHash_中存在。
+
+    - 如果存在，说明已经在LRU列表中，不需要重复添加。
+
+    - 如果不存在，将该frame_id插入到链表的头部，并在哈希表中记录对应的迭代器。*/
+     std::scoped_lock lock{latch_};
+  
+    // if(  LRUhash_.find(frame_id)!= LRUhash_.end()){
+    //     return;//已存在
+    // }
+    if(LRUlist_.size() >= max_size_){
+        return; //满了
+    }
+    if(LRUhash_.count(frame_id) == 0){
+        
+    LRUlist_.emplace_front(frame_id);
+    LRUhash_[frame_id] = LRUlist_.begin();
+    }
+}   
 
 /**
  * @description: 获取当前replacer中可以被淘汰的页面数量

@@ -86,5 +86,6 @@ class Page {
     bool is_dirty_ = false;
 
     /** The pin count of this page. */
+    /*记录有多少线程在访问该页面，当pin counter不为0时，表示该页面被固定，被固定的页面不能从内存中移除*/
     int pin_count_ = 0;
 };

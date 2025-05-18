@@ -22,8 +22,21 @@ int IxNodeHandle::lower_bound(const char *target) const {
     // Todo:
     // 查找当前节点中第一个大于等于target的key，并返回key的位置给上层
     // 提示: 可以采用多种查找方式，如顺序遍历、二分查找等；使用ix_compare()函数进行比较
+    int low = 0;
+    int high = get_size();
+    int mid;
+    while(low < high){
+         mid = (low + high ) / 2;
+        const char *mid_key = get_key(mid);
 
-    return -1;
+        int cmp = ix_compare(mid_key,target,file_hdr->col_types_,file_hdr->col_lens_);
+        if(cmp < 0){
+            low = mid + 1;
+        }else{
+            high = mid ;
+        }
+    }
+    return low;
 }
 
 /**
@@ -36,8 +49,21 @@ int IxNodeHandle::upper_bound(const char *target) const {
     // Todo:
     // 查找当前节点中第一个大于target的key，并返回key的位置给上层
     // 提示: 可以采用多种查找方式：顺序遍历、二分查找等；使用ix_compare()函数进行比较
+    int low = 1;
+    int high =get_size();
+    int mid;
+    while(low < high){
+        mid = (low + high) / 2;
+        const char * mid_key = get_key(mid);
+        int cmp = ix_compare(mid_key,target,file_hdr->col_types_,file_hdr->col_lens_);
+        if(cmp > 0){
+            high = mid;
+        }else{
+            low = mid + 1 ;
+        }
+    }
 
-    return -1;
+    return low;
 }
 
 /**
@@ -54,9 +80,16 @@ bool IxNodeHandle::leaf_lookup(const char *key, Rid **value) {
     // 2. 判断目标key是否存在
     // 3. 如果存在，获取key对应的Rid，并赋值给传出参数value
     // 提示：可以调用lower_bound()和get_rid()函数。
-
-    return false;
+    int index = lower_bound(key);
+    if(ix_compare(get_key(index),key,file_hdr->col_types_,file_hdr->col_lens_) == 0 && index != get_size()){
+        *value = get_rid(index);
+        return true;
+    }else
+    {
+        return false;
+    }
 }
+    
 
 /**
  * 用于内部结点（非叶子节点）查找目标key所在的孩子结点（子树）
@@ -68,8 +101,12 @@ page_id_t IxNodeHandle::internal_lookup(const char *key) {
     // 1. 查找当前非叶子节点中目标key所在孩子节点（子树）的位置
     // 2. 获取该孩子节点（子树）所在页面的编号
     // 3. 返回页面编号
+    int pos = upper_bound(key); 
+    /*不使用lower_bound 因为该函数是大于等于的，等于的时候还好，但大于的时候又要处理
+     所以使用upper_bound 因为只有大于这一种情况*/
 
-    return -1;
+    return  value_at(pos-1);
+    /*pos值为第一个大于key的位置，这意味着返回的pos在目标key的右边*/
 }
 
 /**
